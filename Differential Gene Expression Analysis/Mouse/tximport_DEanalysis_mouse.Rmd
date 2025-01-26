@@ -1,0 +1,138 @@
+---
+title: "Tximport and Differential Gene Expression Analysis (mouse)"
+author: "Jordana Bloom"
+date: "2024-12-01"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+library(tximportData)
+library(tximport)
+library(tibble)
+library(matrixStats)
+library(ggplot2)
+library(limma)
+library(pheatmap)
+
+#directory with the associated fastq files
+##fastq files are available on GEO
+dir <- "/path/to/file/directory"
+list.files(dir)
+
+samples <- read.table(file.path(dir, "samplekey.txt"), header = TRUE)
+samples
+
+files <- file.path(dir, samples$sample, "abundance.h5") #abundance.h5 is typically a faster import
+files
+names(files) <- samples$sample #paste0 
+(file.exists(files))
+
+genomefile <- read.delim("gencode.vM30.annotation.gtf", sep="\t", header = FALSE)
+genomefile_edit <- data.frame(genomefile$V9)
+genomefile_edit2 <- separate(genomefile_edit, genomefile.V9, sep=";", into = c("A","B","C","D","E","F"))
+genomefile_edit3 <- separate(genomefile_edit2, A, sep=" ", into = c("A1","geneid"))
+genomefile_edit3 <- separate(genomefile_edit3, B, sep=" ", into = c("B1","B2", "transcriptid"))
+genomefile_edit4 <- filter(genomefile_edit3, B2 == "transcript_id")
+
+tx2gene_file <- data.frame(TXNAME = genomefile_edit4$transcriptid, GENEID = genomefile_edit4$geneid)
+
+txi <- tximport(files, type = "kallisto", tx2gene = tx2gene_file, ignoreAfterBar = TRUE)
+names(txi)
+head(txi$counts,10)
+
+```
+
+
+
+```{r}
+library(DESeq2)
+
+sampleTable <- data.frame(condition = factor(c("PH_intact","PH_intact","PH_intact","PH_14dOVX","PH_14dOVX","PH_14dOVX","PH_4mOVX","PH_4mOVX","PH_4mOVX","POA_intact","POA_intact","POA_intact","POA_14dOVX","POA_14dOVX","POA_14dOVX","POA_4mOVX","POA_4mOVX","POA_4mOVX","POA_intact","POA_intact","POA_14dOVX","POA_14dOVX","POA_14dOVX","POA_4mOVX","POA_4mOVX","POA_4mOVX","PH_intact","PH_intact","PH_14dOVX","PH_14dOVX","PH_4mOVX","PH_4mOVX","PH_4mOVX")), batch = factor(c("A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","A","B","B","B","B","B","B","B","B","B","B","B","B","B","B","B")))
+
+#output unadjusted counts table 
+TPMtable <- txi$abundance
+
+write.table(TPMtable, "unadjusted_TPMs.txt", sep="\t", quote=FALSE)
+
+rownames(sampleTable) <- colnames(txi$abundance)
+
+sampleTable2 <- read.delim("sampleTable_SVs.txt", sep="\t", header = TRUE, row.names=1)
+sampleTable2$condition <- as.factor(sampleTable2$condition)
+sampleTable2$batch <- as.factor(sampleTable2$batch)
+sampleTable2$SV1 <- as.numeric(sampleTable2$SV1)
+
+dds <- DESeqDataSetFromTximport(txi, sampleTable2, ~SV1 + condition)
+nrow(dds)
+
+#removes genes not expressed in any of the samples
+dds <- dds[ rowSums(counts(dds)) > 1, ]
+#output normalized counts
+dds <- estimateSizeFactors(dds)
+
+# Run DESeq analysis
+dds <- DESeq(dds)
+
+# Extract covariate adjusted counts 
+vsd <- varianceStabilizingTransformation(dds)
+mat <- assay(vsd)
+mat2 <- removeBatchEffect(mat, covariates=vsd$SV1)
+# Convert log2 counts to untransformed counts for all columns
+for (col in 1:ncol(mat2)) {
+  mat2[, col] <- 2^(mat2[, col])
+}
+write.table(mat2, file="normalizedcounts.txt", sep="\t")
+
+resultsNames(dds)
+#set contrast to each comparison of interest
+res <- results(dds,contrast=c("condition","POA_4mOVX","POA_14dOVX"), alpha = 0.05)
+
+res$ensembl <- sapply( strsplit( rownames(res), split="\\." ), "[", 1 )
+
+library( "biomaRt" )
+#filters = listFilters(ensembl)
+#attributes = listAttributes(ensembl)
+
+mart <- useMart("ensembl")
+#datasets <- listDatasets(mart)
+mart <- useDataset("mmusculus_gene_ensembl",mart)
+genemap <- getBM(attributes = c("ensembl_gene_id","external_gene_name","gene_biotype"),
+      filters    = "ensembl_gene_id",
+      values     = res$ensembl, 
+      mart       = mart)
+idx <- match( res$ensembl, genemap$ensembl_gene_id )
+res$gene_name <- genemap$external_gene_name[ idx ]
+res$gene_type <- genemap$gene_biotype[ idx ]
+
+ressig<-as.data.frame(res[which(res$padj<0.05),])
+#ressig$info<-row.names(ressig)
+dat <- as.data.frame(res)
+#1 = not significant 
+dat$significant<-"1"
+#2 = significant
+dat$significant[which(dat$padj<0.05)]<-"2"
+
+write.table(dat, file="DEtable_POA4mOVXvs14dOVX.txt", sep="\t", row.names=TRUE, col.names=TRUE)
+```
+
+Make volcano plots
+
+```{r}
+library(ggrepel)
+
+PC_filt <- dat$gene_type == "protein_coding" 
+dat <- dat[PC_filt,]
+dat <- as.data.frame(dat)
+# Convert 'significant' to factor if it's not already
+dat$significant <- factor(dat$significant)
+
+  #Volcano plot
+pdf("DE_POA4m.vs.14dOVX_volcano.pdf")
+
+ggplot(dat,aes(log2FoldChange,-log10(pvalue),colour=significant))+geom_point(alpha=0.5) +
+    theme_bw()+scale_colour_manual(values=c("1"="black","2"="red")) +
+    geom_text_repel(data = subset(dat, significant == "2"), aes(label=gene_name),  max.overlaps = 10)
+dev.off()
+```

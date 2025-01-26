@@ -1,0 +1,247 @@
+---
+title: "Differential Gene Expression Analysis (human)"
+author: "Jordana Bloom"
+date: "2024-12-01"
+output: html_document
+---
+
+Load packages
+
+```{r}
+suppressPackageStartupMessages(library("limma"))
+suppressPackageStartupMessages(library("sva"))
+suppressPackageStartupMessages(library("DESeq2"))
+suppressPackageStartupMessages(library("SmartSVA"))
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(tibble)
+library(tidyverse)
+library(matrixStats)
+library(tximport)
+library(tximportData)
+library(stringr) 
+library(reshape2)
+library(readr)
+
+sessionInfo()
+```
+
+Load count data and metadata file (available from https://gtexportal.org/home/)
+
+Make the count matrix file from GTEx whole numbers (round).
+
+Filter metadata file according to RIN (SMRIN) and drop samples that have RIN missing.
+
+```{r}
+countMatrix <- read.delim("GTEx_Analysis_2017-06-05_v8_RSEMv1.3.0_gene_count.txt", row.names = "gene_id", check.names=FALSE)
+
+tpmMatrix <- read.delim("GTEx_Analysis_2017-06-05_v8_RSEMv1.3.0_gene_tpm.txt", header=TRUE, check.names = FALSE)
+
+tpmMatrix2 <- lapply(tpmMatrix, as.integer)
+tpmMatrix3 <- as.data.frame(tpmMatrix2, header=TRUE, check.names=FALSE)
+row.names(tpmMatrix3) <- row.names(tpmMatrix)
+gene_ids <- tpmMatrix$gene_id
+tpmMatrix3[["gene_id"]] <- gene_ids
+
+countMatrix2 <- lapply(countMatrix, as.integer)
+countMatrix3 <- as.data.frame(countMatrix2, header=TRUE, check.names=FALSE)
+row.names(countMatrix3) <- row.names(countMatrix)
+
+metadata_info <- read.delim("gtex_metadata_file.txt", check.names = FALSE)
+
+#Filter parameter
+min.SMRIN = 6
+
+filter = (! is.na(metadata_info$SMRIN)) & metadata_info$SMRIN >= min.SMRIN 
+metadata_info <- metadata_info[filter, ]
+dim(metadata_info)
+
+filter2 = metadata_info$TISSUE == "Brain - Hypothalamus"
+metadata_info <- metadata_info[filter2,]
+dim(metadata_info)
+
+filter3 = metadata_info$SEX == 2
+metadata_info <- metadata_info[filter3,]
+dim(metadata_info)
+
+filter4 = metadata_info$AGE <= 65
+metadata_info <- metadata_info[filter4,]
+dim(metadata_info)
+```
+
+Checks that the samples selected are only "Brain - Hypothalamus"
+
+```{r}
+
+testlist <- list()   
+ for (tissue in metadata_info$TISSUE) {
+        if (!tissue %in% testlist){
+          testlist <- append(testlist, tissue)
+          }
+   } 
+
+for (tissue in testlist) 
+      {print(tissue)}
+
+```
+
+
+```{r}
+for (tissue in testlist) { 
+  filtered_metadata <- metadata_info %>% filter(metadata_info$TISSUE == tissue)
+  goodSAMPIDs <- list()
+  for (ID in filtered_metadata$SAMPID) {
+    if (length(tpmMatrix3[[ID]]) >0){
+      goodSAMPIDs <- append(goodSAMPIDs, ID)
+    }
+  }
+  
+   tissueTpmMatrix <- tpmMatrix3[, names(tpmMatrix3) %in% goodSAMPIDs]
+   tissueCountMatrix <- countMatrix3[, names(countMatrix3) %in% goodSAMPIDs]
+   filtered_metadata <- filtered_metadata %>% filter(SAMPID %in% goodSAMPIDs)
+}
+
+```
+
+
+```{r}
+gene_id <- tpmMatrix2$gene_id
+gene_id <- as.data.frame(gene_id)
+
+# Convert row names to a regular column
+countMatrix_test <- data.frame(rowname = row.names(countMatrix), countMatrix, row.names = NULL)
+# Assigning a column name to the rownames column
+colnames(countMatrix_test)[1] <- "gene_id"
+
+countMatrix2 <- merge(countMatrix_test, gene_id, by="gene_id", all.y=FALSE)
+# Set the first column as row names
+rownames(countMatrix2) <- countMatrix2[, 1]
+# Remove the first column (since it is now used as row names)
+countMatrix2 <- countMatrix2[, -1]
+# Convert periods to hyphens in column names
+colnames(countMatrix2) <- gsub("\\.", "-", colnames(countMatrix2))
+
+```
+
+Use the count normalized expression filtered file for surrogate variable analysis
+
+```{r}
+  tissueCountMatrix <- countMatrix2[, names(countMatrix2) %in% goodSAMPIDs]
+    #removes genes not expressed in any of the samples
+    tissueCountMatrix <- tissueCountMatrix[ rowSums(tissueCountMatrix) > 1, ]
+    
+    # Extract row names and create a new dataframe
+  gene_id <- data.frame(rowname = rownames(tissueCountMatrix))
+
+# Normalize matrix by scaling factor (sf)
+sf <- estimateSizeFactorsForMatrix(tissueCountMatrix)
+data.selected.tissue.genes.scaled <- t(t(tissueCountMatrix) / sf)
+
+log2.data.selected.tissue.genes.scaled <- log2(tissueCountMatrix + 1)
+dim(log2.data.selected.tissue.genes.scaled)
+log2.data.selected.tissue.genes.scaled <- as.matrix(log2.data.selected.tissue.genes.scaled)
+
+mod1 <- model.matrix(~AGE, data=filtered_metadata)
+mod0 <- model.matrix(~1, data=filtered_metadata)
+
+Y.r <- t(resid(lm(t(log2.data.selected.tissue.genes.scaled) ~ mod1, data=filtered_metadata)))
+## Add one extra dimension to compensate potential loss of 1 degree of freedom in confounded scenarios (very important)
+n.sv <- EstDimRMT(Y.r, FALSE)$dim + 1
+mod1 <- model.matrix(~ mod1, filtered_metadata)
+mod0 <- model.matrix(~ mod0, filtered_metadata)
+
+type(n.sv)
+
+cat("Generating",n.sv,"SVs\n")
+sv.obj <- smartsva.cpp(log2.data.selected.tissue.genes.scaled, mod=mod1, mod0=mod0, B=1000, alpha=1, n.sv=n.sv)
+
+#Save surrogate variables
+allSv <- sv.obj$sv
+colnames(allSv) <- paste0("SV", 1:n.sv, sep="")
+SAMPID_names <- as.data.frame(filtered_metadata$SAMPID)
+allSv <- as.data.frame(allSv)
+allSv <- append(SAMPID_names, allSv)
+
+write.table(allSv,"GTExhypoSVs.txt",sep = "\t" , quote=F, row.names = F)
+
+```
+
+
+```{r}
+#Groups = 1 (less than 45), 2 (46-50), 3 (51-55), 4 (56-60), 5 (61-65)
+
+meta_SVs <- read.delim("GTExhypo_SVs.txt", check.names = FALSE)
+colnames(meta_SVs)[colnames(meta_SVs) == "filtered_metadata.SAMPID"] <- "SAMPID"
+
+# Merge the two lists based on the "id" column
+merged_list <- merge(filtered_metadata, meta_SVs, by = "SAMPID", all.x = TRUE)
+meta <- merged_list
+
+meta$Groups <- as.factor(meta$Groups)
+
+tissueCountMatrix <- lapply(tissueCountMatrix, as.integer)
+tissueCountMatrix <- as.data.frame(tissueCountMatrix)
+rownames(gene_id) <- gene_id[,1]
+# Combine data frames column-wise
+tissueCountMatrix <- cbind(gene_id[, -1], tissueCountMatrix)
+# Set row names using values from the first data frame
+rownames(tissueCountMatrix) <- gene_id[, 1]
+
+dds <- DESeqDataSetFromMatrix(countData = tissueCountMatrix,
+                              colData = meta,
+                              design = ~ SV1 + Groups)
+
+dds <- estimateSizeFactors(dds)
+normalized_counts <- counts(dds, normalized=TRUE)
+
+dds <- DESeq(dds)
+resultsNames(dds)
+#res <- results(dds,alpha = 0.05)
+
+#line below is an example of comparing group 4 vs. 1
+res <- results(dds,contrast=c("Groups","4","1"), alpha = 0.05)
+ressig<-as.data.frame(res[which(res$padj<0.05),])
+ressig$info<-row.names(ressig)
+dat <- as.data.frame(res)
+#1 = not significant 
+dat$significant<-"1"
+#2 = significant
+dat$significant[which(dat$padj<0.05)]<-"2"
+dat$info<-row.names(dat)
+
+gene.info <- read.delim("biomartEnsembl_ids2021.txt", row.names=1)
+this.gene = rownames(dat)
+	# Drop everything in the gene ID after the "."
+this.gene.no.version = gsub("\\..+", "", this.gene)
+this.gene.symbol = as.character(gene.info[this.gene.no.version,1])
+this.gene.type = as.character(gene.info[this.gene.no.version,2])
+
+dat$gene.names<-this.gene.symbol
+dat$gene.type<-this.gene.type
+
+write.table(dat, "DEgene4v1.txt", sep="\t",quote=FALSE, row.names=FALSE, col.names=TRUE)
+
+normalized_counts <- as.data.frame(normalized_counts)
+normalized_counts$gene.names <- this.gene.symbol
+normalized_counts$gene.type <- this.gene.type
+write.table(normalized_counts,"DEseq2norm_count_table.txt", sep="\t",quote=FALSE, col.names=NA)
+```
+
+
+```{r}
+library(ggrepel)
+
+PC_filt <- dat$gene.type == "protein_coding"
+dat <- dat[PC_filt,]
+dat <- as.data.frame(dat)
+dat$significant <- as.factor(dat$significant)
+
+  #Volcano plot
+pdf("DE4v1_volcano.pdf")
+ggplot(dat,aes(log2FoldChange,-log10(pvalue),colour=significant))+geom_point(alpha=0.5) +
+    theme_bw()+scale_colour_manual(values=c("1"="black","2"="red")) +
+    geom_text_repel(data = subset(dat, significant == "2"), aes(label=gene.names),  max.overlaps = 10)
+dev.off()
+
+```

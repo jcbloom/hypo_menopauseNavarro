@@ -1,0 +1,122 @@
+---
+title: "Gene Set Enrichment Analysis"
+author: "Jordana Bloom"
+date: "2024-12-01"
+output: html_notebook
+---
+
+Load necessary libraries
+https://bioconductor.org/packages/devel/bioc/vignettes/fgsea/inst/doc/fgsea-tutorial.html
+
+```{r}
+library(fgsea)
+library(data.table)
+library(ggplot2)
+#library(org.Mm.eg.db) # Gene annotations for mouse genes
+library(org.Hs.eg.db)  # Gene annotations for human genes
+library(stringr)
+library(plyr)
+library(dplyr)
+library(tibble)
+library(tidyverse)
+library(matrixStats)
+library(ggplot2)
+library(ggpubr)
+library(ggrepel)
+library(ComplexHeatmap)
+library(circlize)
+
+sessionInfo()
+```
+
+
+```{r}
+# Read in your log2FC file and order it from high to low log2FCs
+##for example: supplemental data table S5 (for human data) or supplemental data table S7 (for mouse data)
+express_log2FCrank_file <- read.delim("supplementalTableS5.txt", header=TRUE, check.names=FALSE)
+gene.type <- express_log2FCrank_file$gene.type == "protein_coding"
+express_log2FCrank_file <- express_log2FCrank_file[gene.type,]
+gene.names <- express_log2FCrank_file$gene.names
+log2FoldChange <- express_log2FCrank_file$log2FoldChange
+combined_df <- data.frame(gene.names, log2FoldChange)
+
+# Order the DataFrame by the specified column in descending order (high to low)
+ordered_express_rank <- combined_df[order(combined_df$log2FoldChange, decreasing = TRUE), ]
+
+removeNA <- (! is.na(ordered_express_rank$log2FoldChange))
+ordered_express_rank <- ordered_express_rank[removeNA, ]
+ordered_express_rank <- setNames(ordered_express_rank$log2FoldChange, ordered_express_rank$gene.names)
+
+# Read in your gene set database
+##use h.all.v2023.1.Hs.symbols.gmt with human data
+##use mh.all.v2023.1.Mm.symbols.gmt with mouse data
+
+gmt_file <- "h.all.v2023.1.Hs.symbols.gmt"
+pathways <- gmtPathways(gmt_file)
+str(head(pathways))
+
+fgseaRes <- fgsea(pathways = pathways, 
+                  stats    = ordered_express_rank,
+                  eps      = 0.0,
+                  minSize  = 15,
+                  maxSize  = 500)
+
+head(fgseaRes[order(pval), ])
+
+# Convert the leadingEdge column from a list to a character vector
+fgseaRes$leadingEdge <- sapply(fgseaRes$leadingEdge, paste, collapse = ",")
+
+# Write the modified data frame to a file
+write.table(fgseaRes, "GSEAresultsfile.txt", sep="\t", row.names = FALSE)
+
+```
+
+```{r}
+# GSEA results file for heatmap
+##supplemental data table S4 (for human data) or supplemental data table S8 (for mouse data)
+
+heatmap_dataframe <- read.delim("supplementalTableS4.txt", header=TRUE, check.names=FALSE)
+
+heatmap_dataframe$condition <- as.factor(heatmap_dataframe$condition)
+heatmap_dataframe$pathway <- as.factor(heatmap_dataframe$pathway)
+heatmap_dataframe$NES <- as.numeric(heatmap_dataframe$NES)
+heatmap_dataframe$log_padj <- as.numeric(heatmap_dataframe$pval)
+heatmap_dataframe$padj <- as.numeric(heatmap_dataframe$padj)
+
+heatmap_dataframe <- heatmap_dataframe
+heatmap_dataframe_filt <- heatmap_dataframe[, c(1, 2, 3)]
+Heat_df <- heatmap_dataframe_filt %>% pivot_wider(names_from = "pathway", values_from = "NES")
+Heat_df[is.na(Heat_df)] <- 0
+
+Heat_df2 <- (Heat_df[,-1])
+Heat_df2 <- as.data.frame(Heat_df2)
+colnames(Heat_df2) <- colnames(Heat_df[-1])
+rownames(Heat_df2) <- Heat_df$condition
+
+heatmap_dataframe_filt2 <- heatmap_dataframe[, c(1, 5, 3)]
+Heat_df_padj <- heatmap_dataframe_filt2 %>% pivot_wider(names_from = "pathway", values_from = "padj")
+Heat_df_padj[is.na(Heat_df_padj)] <- 0.99
+Heat_df_padj <- Heat_df_padj[,-1]
+Heat_df_padj <- as.data.frame(Heat_df_padj)
+colnames(Heat_df_padj) <- colnames(Heat_df[-1])
+rownames(Heat_df_padj) <- Heat_df$condition
+
+# Transpose the Heat_df2 data frame
+Heat_df2_transposed <- t(Heat_df2)
+Heat_df_padj_transposed <- t(Heat_df_padj)
+
+fontsize <- 10
+col_fun = colorRamp2(c(0, 1.25, 2.5), c("blue", "white", "red"))
+col_fun(seq(-2.5, 2.5))
+pdf(file = "HeatmapHuman_GSEAHallmark.pdf")
+Heatmap(Heat_df2_transposed, column_title = "Hallmark Pathways", col = col_fun, column_names_rot = 45, cluster_rows = FALSE, cluster_columns = FALSE, row_title = "Condition", row_names_gp = gpar(fontsize = 10), column_names_gp = gpar(fontsize = 10), cell_fun = function(j, i, x, y, w, h, fill) {
+    if(Heat_df_padj_transposed[i, j] < 0.001) {
+        grid.text("***", x, y, gp = gpar(fontsize=fontsize))
+    } else if(Heat_df_padj_transposed[i, j] < 0.01) {
+        grid.text("**", x, y, gp = gpar(fontsize=fontsize))
+    } else if(Heat_df_padj_transposed[i, j] < 0.05) {
+        grid.text("*", x, y, gp = gpar(fontsize=fontsize))
+    }
+})
+dev.off()
+```

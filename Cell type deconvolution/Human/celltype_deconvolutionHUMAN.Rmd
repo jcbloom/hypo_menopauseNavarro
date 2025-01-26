@@ -1,0 +1,81 @@
+---
+title: "celltype_deconvolutionHUMAN"
+author: "Jordana Bloom"
+date: "2024-12-01"
+output: html_document
+---
+
+
+```{r}
+#devtools::install_github("cozygene/bisque")
+library(BisqueRNA)
+library(Biobase)
+library(dplyr)
+#library(tibble)
+library(matrixStats)
+library(stringr) 
+library(ggplot2)
+library(ggpubr)
+library(reshape2)
+library(readr)
+library(RColorBrewer)
+library(viridis)
+
+sessionInfo()
+```
+
+## Input Format
+
+Bisque requires expression data in the ExpressionSet format from the Biobase package. 
+
+Bulk RNA-seq data can be converted from a matrix (columns are samples, rows are genes) to an ExpressionSet as follows:
+
+```{r}
+#use supplemental data table S6
+bulk.matrix <- read.delim("path_to_supplementalTableS6.txt", header=TRUE, check.names = FALSE)
+
+colnames(bulk.matrix)[colnames(bulk.matrix) == "gene_id"] <- "gene_col"
+
+#remove column with gene.type information
+bulk.matrix <- bulk.matrix[, -ncol(bulk.matrix)]
+
+#remove gene.names column 
+bulk.matrix <- bulk.matrix[, -ncol(bulk.matrix)]
+
+# Set the row names to the first column
+rownames(bulk.matrix) <- make.unique(bulk.matrix$gene_col)
+# Remove the first column
+bulk.matrix <- bulk.matrix[, -1]
+bulk.matrix <- as.matrix(bulk.matrix)
+
+bulk.eset <- ExpressionSet(assayData = bulk.matrix)
+#sampleNames(bulk.eset)
+```
+
+```{r}
+#use supplemental data table S2 (marker genes obtained from Hajdarovic et al. 2022)
+marker.data.frame <- read.delim("path_to_supplementalTableS2.txt", header=TRUE, check.names = FALSE)
+
+#Call the marker-based decomposition method:
+res <- MarkerBasedDecomposition(bulk.eset, markers = marker.data.frame, gene_col = "gene_col", min_gene = 1, weighted=FALSE)
+
+marker.based.estimates <- as.data.frame(res$bulk.props)
+
+write.table(marker.based.estimates,"path_to_markerestimate_output.txt", sep="\t",quote=FALSE, col.names=NA)
+
+```
+
+
+```{r}
+#marker estimate output file with menopause status group information included
+data <- read.delim("markerestimates_withgroupinfo.txt", header=TRUE, check.names = FALSE)
+
+data$Group <- factor(data$Group, levels = c("Pre", "Early_peri", "Late_peri", "Early_post", "Late_post"))
+
+pdf("Celltypedecon_stackedBar_humandata.pdf") 
+# Stacked
+ggplot(data, aes(fill=Cell_type, y=Value, x=Group)) + 
+    geom_bar(position="fill", stat="identity") + theme_bw() + scale_fill_viridis(discrete = T) +
+     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```

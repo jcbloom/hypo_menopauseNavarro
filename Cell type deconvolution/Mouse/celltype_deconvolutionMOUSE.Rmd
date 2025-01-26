@@ -1,0 +1,84 @@
+---
+title: "celltype_deconvolutionMOUSE"
+author: "Jordana Bloom"
+date: "2024-120-01"
+output: html_document
+---
+
+```{r}
+#devtools::install_github("cozygene/bisque")
+library(BisqueRNA)
+library(Biobase)
+library(dplyr)
+#library(tibble)
+library(matrixStats)
+library(stringr) 
+library(ggplot2)
+library(ggpubr)
+library(reshape2)
+library(readr)
+library(RColorBrewer)
+library(viridis)
+
+sessionInfo()
+```
+
+## Input Format
+
+Bisque requires expression data in the ExpressionSet format from the Biobase package. 
+
+Bulk RNA-seq data can be converted from a matrix (columns are samples, rows are genes) to an ExpressionSet as follows:
+
+```{r}
+#use supplemental data table S9
+bulk.matrix <- read.delim("path_to_supplementalTableS9.txt", header=TRUE, check.names = FALSE)
+
+colnames(bulk.matrix)[colnames(bulk.matrix) == "gene_id"] <- "gene_col"
+#remove last column with gene.type information (run line twice)
+##bulk.matrix <- bulk.matrix[, -ncol(bulk.matrix)]
+
+# Check for missing values in the 'gene_col' column
+missing_values <- is.na(bulk.matrix$gene_col)
+# If there are missing values, you can remove them or replace them with unique identifiers
+if (any(missing_values)) {
+  # Remove rows with missing values
+  bulk.matrix <- bulk.matrix[!missing_values, ]
+}
+
+# Set the row names to the first column
+rownames(bulk.matrix) <- make.unique(bulk.matrix$gene_col)
+# Remove the first column
+bulk.matrix <- bulk.matrix[, -1]
+bulk.matrix <- as.matrix(bulk.matrix)
+
+bulk.eset <- ExpressionSet(assayData = bulk.matrix)
+#sampleNames(bulk.eset)
+```
+
+```{r}
+#use markergenes_mouse.txt file (same as markers as from the human data analysis, but with mouse gene names)
+marker.data.frame <- read.delim("markergenes_mouse.txt", header=TRUE, check.names = FALSE)
+
+#Call the marker-based decomposition method:
+res <- MarkerBasedDecomposition(bulk.eset, markers = marker.data.frame, gene_col = "gene_col", min_gene = 1, weighted=FALSE)
+
+marker.based.estimates <- as.data.frame(res$bulk.props)
+
+write.table(marker.based.estimates,"path_to_markerestimateMouse_output.txt", sep="\t",quote=FALSE, col.names=NA)
+
+```
+
+```{r}
+#marker estimate output file with OVX group information included
+data <- read.delim("markerestimates_withgroupinfo_mouse.txt", header=TRUE, check.names = FALSE)
+
+data$Group <- factor(data$Group, levels = c("PH_intact", "PH_14dOVX", "PH_4mOVX", "POA_intact","POA_14dOVX", "POA_4mOVX"))
+
+pdf("Celltypedecon_stackedBar_mousedata.pdf") 
+# Stacked
+ggplot(data, aes(fill=Cell_type, y=Value, x=Group)) + 
+    geom_bar(position="fill", stat="identity") + theme_bw() + scale_fill_viridis(discrete = T) +
+     theme(axis.text.x = element_text(angle = 45, hjust = 1))
+dev.off()
+```
+
