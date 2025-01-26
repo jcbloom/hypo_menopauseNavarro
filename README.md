@@ -7,6 +7,3 @@ Each folder contains code and processed data that may be used to recreate one or
   Gene Set Enrichment Analysis: Fig. 1, Fig. 3, Table S4, Table S8
   Differential Gene Expression Analysis: Fig. 2, Fig. 3, Fig. 4, Fig. S5, Fig. S6, Table S5, Table S6, Table S7, Table S9
   Co-expression Analysis: Fig. 4, Table S10
-
-  
- 
