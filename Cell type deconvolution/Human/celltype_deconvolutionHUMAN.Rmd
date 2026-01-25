@@ -70,7 +70,7 @@ write.table(marker.based.estimates,"path_to_markerestimate_output.txt", sep="\t"
 #marker estimate output file with menopause status group information included
 data <- read.delim("markerestimates_withgroupinfo.txt", header=TRUE, check.names = FALSE)
 
-data$Group <- factor(data$Group, levels = c("Pre", "Early_peri", "Late_peri", "Early_post", "Late_post"))
+data$Group <- factor(data$Group, levels = c("Pre", "Peri", "Late_peri", "Post", "Late_post"))
 
 pdf("Celltypedecon_stackedBar_humandata.pdf") 
 # Stacked
