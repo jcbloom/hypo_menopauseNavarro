@@ -31,8 +31,8 @@ Bisque requires expression data in the ExpressionSet format from the Biobase pac
 Bulk RNA-seq data can be converted from a matrix (columns are samples, rows are genes) to an ExpressionSet as follows:
 
 ```{r}
-#use supplemental data table S6
-bulk.matrix <- read.delim("path_to_supplementalTableS6.txt", header=TRUE, check.names = FALSE)
+#use supplemental data table S9
+bulk.matrix <- read.delim("path_to_supplementalTableS9.txt", header=TRUE, check.names = FALSE)
 
 colnames(bulk.matrix)[colnames(bulk.matrix) == "gene_id"] <- "gene_col"
 
@@ -53,8 +53,8 @@ bulk.eset <- ExpressionSet(assayData = bulk.matrix)
 ```
 
 ```{r}
-#use supplemental data table S2 (marker genes obtained from Hajdarovic et al. 2022)
-marker.data.frame <- read.delim("path_to_supplementalTableS2.txt", header=TRUE, check.names = FALSE)
+#use supplemental data table S5 (marker genes obtained from Hajdarovic et al. 2022)
+marker.data.frame <- read.delim("path_to_supplementalTableS5.txt", header=TRUE, check.names = FALSE)
 
 #Call the marker-based decomposition method:
 res <- MarkerBasedDecomposition(bulk.eset, markers = marker.data.frame, gene_col = "gene_col", min_gene = 1, weighted=FALSE)
@@ -70,7 +70,7 @@ write.table(marker.based.estimates,"path_to_markerestimate_output.txt", sep="\t"
 #marker estimate output file with menopause status group information included
 data <- read.delim("markerestimates_withgroupinfo.txt", header=TRUE, check.names = FALSE)
 
-data$Group <- factor(data$Group, levels = c("Pre", "Peri", "Late_peri", "Post", "Late_post"))
+data$Group <- factor(data$Group, levels = c("< 45", "46-50", "51-55", "56-60", "61-65"))
 
 pdf("Celltypedecon_stackedBar_humandata.pdf") 
 # Stacked
