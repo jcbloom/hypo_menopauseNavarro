@@ -1,51 +1,51 @@
 Cell_type	Group	Value
-Astrocyte	Pre	2.628878871
-Endothelial_cell	Pre	0.314863492
-Ependymocyte	Pre	0.516348518
-Microglia	Pre	2.157362689
-Neuron	Pre	0.696929902
-Oligodendrocyte	Pre	0.93066905
-OPC	Pre	0.990811123
-Pericyte	Pre	0.298405227
-Tanycyte	Pre	0.28351303
-VLMC	Pre	0.204209406
-Astrocyte	Peri	0.482798714
-Endothelial_cell	Peri	0.559872158
-Ependymocyte	Peri	0.46093705
-Microglia	Peri	1.936244948
-Neuron	Peri	0.972955527
-Oligodendrocyte	Peri	0.962559954
-OPC	Peri	0.769062913
-Pericyte	Peri	0.501004215
-Tanycyte	Peri	0.347487901
-VLMC	Peri	0.596872147
-Astrocyte	Late_peri	0.962583066
-Endothelial_cell	Late_peri	1.478259062
-Ependymocyte	Late_peri	0.600501827
+Astrocyte	< 45	2.628878871
+Endothelial_cell	< 45	0.314863492
+Ependymocyte	< 45	0.516348518
+Microglia	< 45	2.157362689
+Neuron	< 45	0.696929902
+Oligodendrocyte	< 45	0.93066905
+OPC	< 45	0.990811123
+Pericyte	< 45	0.298405227
+Tanycyte	< 45	0.28351303
+VLMC	< 45	0.204209406
+Astrocyte	46-50	0.482798714
+Endothelial_cell	46-50	0.559872158
+Ependymocyte	46-50	0.46093705
+Microglia	46-50	1.936244948
+Neuron	46-50	0.972955527
+Oligodendrocyte	46-50	0.962559954
+OPC	46-50	0.769062913
+Pericyte	46-50	0.501004215
+Tanycyte	46-50	0.347487901
+VLMC	46-50	0.596872147
+Astrocyte	51-55	0.962583066
+Endothelial_cell 51-55	1.478259062
+Ependymocyte	51-55	0.600501827
 Microglia	Late_peri	1.443012745
-Neuron	Late_peri	1.305490674
+Neuron	51-55	1.305490674
 Oligodendrocyte	Late_peri	1.196455858
-OPC	Late_peri	0.901087342
-Pericyte	Late_peri	0.942661049
-Tanycyte	Late_peri	0.922543603
-VLMC	Late_peri	0.882925204
-Astrocyte	Post	0.977634537
-Endothelial_cell	Post	0.945529332
-Ependymocyte	Post	0.691021961
-Microglia	Post	1.95438631
-Neuron	Post	0.730935278
-Oligodendrocyte	Post	1.12813864
-OPC	Post	1.205806215
-Pericyte	Post	0.99226169
-Tanycyte	Post	0.451105678
-VLMC	Post	0.704778131
-Astrocyte	Late_post	0.939534255
-Endothelial_cell	Late_post	0.940274597
-Ependymocyte	Late_post	0.862753492
-Microglia	Late_post	1.132968593
-Neuron	Late_post	1.462760204
-Oligodendrocyte	Late_post	0.939260664
-OPC	Late_post	1.274384297
-Pericyte	Late_post	0.588475797
-Tanycyte	Late_post	0.839746841
-VLMC	Late_post	1.055906307
+OPC	51-55	0.901087342
+Pericyte	51-55	0.942661049
+Tanycyte	51-55	0.922543603
+VLMC	51-55 0.882925204
+Astrocyte	56-60	0.977634537
+Endothelial_cell	56-60	0.945529332
+Ependymocyte	56-60	0.691021961
+Microglia	56-60	1.95438631
+Neuron	56-60	0.730935278
+Oligodendrocyte	56-60	1.12813864
+OPC	56-60	1.205806215
+Pericyte	56-60	0.99226169
+Tanycyte	56-60	0.451105678
+VLMC	56-60	0.704778131
+Astrocyte	61-65	0.939534255
+Endothelial_cell	61-65	0.940274597
+Ependymocyte	61-65	0.862753492
+Microglia	61-65	1.132968593
+Neuron	61-65	1.462760204
+Oligodendrocyte	L61-65	0.939260664
+OPC	61-65	1.274384297
+Pericyte	61-65	0.588475797
+Tanycyte	61-65	0.839746841
+VLMC	61-65	1.055906307
