@@ -73,9 +73,9 @@ write.table(fgseaRes, "GSEAresultsfile.txt", sep="\t", row.names = FALSE)
 
 ```{r}
 # GSEA results file for heatmap
-##supplemental data table S4 (for human data) or supplemental data table S7 (for mouse data)
+##supplemental data table S7 (for human data) or supplemental data table S1 (for mouse data)
 
-heatmap_dataframe <- read.delim("supplementalTableS4.txt", header=TRUE, check.names=FALSE)
+heatmap_dataframe <- read.delim("supplementalTableS7.txt", header=TRUE, check.names=FALSE)
 
 heatmap_dataframe$condition <- as.factor(heatmap_dataframe$condition)
 heatmap_dataframe$pathway <- as.factor(heatmap_dataframe$pathway)
