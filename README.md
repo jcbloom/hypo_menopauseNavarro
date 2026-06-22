@@ -1,5 +1,5 @@
 # hypo_menopauseNavarro
-Code associated with bioRxiv preprint Bloom et al. 2026 "Progressive hypothalamic neuroinflammation in ovariectomized mice parallels aging-related transcriptomic changes in the female human hypothalamus"
+Code associated with Bloom et al. 2026 "Progressive hypothalamic neuroinflammation in ovariectomized mice parallels aging-related transcriptomic changes in the female human hypothalamus"
 
 Each folder contains code and processed data that may be used to recreate one or more figures and tables:  
   Cell type deconvolution: Fig. S1, Fig. S6
