@@ -30,8 +30,8 @@ Bisque requires expression data in the ExpressionSet format from the Biobase pac
 Bulk RNA-seq data can be converted from a matrix (columns are samples, rows are genes) to an ExpressionSet as follows:
 
 ```{r}
-#use supplemental data table S9
-bulk.matrix <- read.delim("path_to_supplementalTableS9.txt", header=TRUE, check.names = FALSE)
+#use supplemental data table S3
+bulk.matrix <- read.delim("path_to_supplementalTableS3.txt", header=TRUE, check.names = FALSE)
 
 colnames(bulk.matrix)[colnames(bulk.matrix) == "gene_id"] <- "gene_col"
 #remove last column with gene.type information (run line twice)
